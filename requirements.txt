@@ -4,4 +4,4 @@ google-auth-oauthlib==1.2.0
 google-api-python-client==2.128.0
 requests==2.31.0
 gunicorn==22.0.0
-gTTS==2.5.1
+edge-tts==6.1.9

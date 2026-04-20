@@ -1,11 +1,10 @@
-import os,json,time,uuid,subprocess,textwrap,threading,re
+import os,json,time,uuid,subprocess,textwrap,threading,re,asyncio
 from flask import Flask,request,jsonify,redirect,session
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from gtts import gTTS
-import requests
+import requests,edge_tts
 
 app=Flask(__name__)
 app.secret_key=os.environ.get('SECRET_KEY','fs2024')
@@ -19,6 +18,9 @@ SCOPES=['https://www.googleapis.com/auth/youtube.upload']
 TOKENS_FILE='youtube_tokens.json'
 TG_API=f'https://api.telegram.org/bot{TG_TOKEN}'
 pending={}
+
+# أصوات عربية طبيعية
+AR_VOICES=['ar-DZ-AminaNeural','ar-SA-ZariyahNeural','ar-MA-MounaNeural','ar-EG-ShakirNeural']
 
 def tg(text,kb=None):
  d={'chat_id':TG_CHAT_ID,'text':text,'parse_mode':'HTML'}
@@ -40,19 +42,49 @@ def notify(vid):
  if res.get('ok'):pending[vid]['tg_mid']=res['result']['message_id']
 
 def gen_script(topic):
- prompt=f'اكتب سكريبت فيديو 30-45 ثانية لصفحة فلسفة ديزاد عن: {topic}\nفاكهة تتكلم بالدارجة الجزائرية (راني،واش،بصح،والو)\nJSON فقط: {{"title":"","character":"","emoji":"🍌","script":"","hashtags":"#فلسفة_ديزاد","description":""}}'
- r=requests.post('https://api.groq.com/openai/v1/chat/completions',headers={'Authorization':f'Bearer {GROQ_KEY}','Content-Type':'application/json'},json={'model':'llama-3.3-70b-versatile','messages':[{'role':'user','content':prompt}],'max_tokens':800,'temperature':0.9},timeout=30)
+ prompt=f'''اكتب سكريبت فيديو 30-45 ثانية لصفحة فلسفة ديزاد عن: {topic}
+فاكهة تتكلم بالدارجة الجزائرية الحقيقية (راني،واش،بصح،والو،كاش،يزي)
+الأسلوب: فلسفة خفيفة وطريفة، نهاية مفاجئة
+JSON فقط:
+{{"title":"عنوان جذاب","character":"اسم الشخصية","emoji":"🍌","script":"النص كامل بالدارجة","hashtags":"#فلسفة_ديزاد #الجزائر","description":"وصف","fruit_search":"كلمة انجليزية للبحث عن صورة الفاكهة مثل banana"}}'''
+ r=requests.post('https://api.groq.com/openai/v1/chat/completions',
+  headers={'Authorization':f'Bearer {GROQ_KEY}','Content-Type':'application/json'},
+  json={'model':'llama-3.3-70b-versatile','messages':[{'role':'user','content':prompt}],'max_tokens':800,'temperature':0.9},
+  timeout=30)
  text=r.json()['choices'][0]['message']['content']
  clean=text.replace('```json','').replace('```','').strip()
  m=re.search(r'\{[\s\S]*\}',clean)
  return json.loads(m.group(0)) if m else{}
 
+async def make_audio_async(text,path):
+ for voice in AR_VOICES:
+  try:
+   communicate=edge_tts.Communicate(text,voice)
+   await communicate.save(path)
+   if os.path.exists(path) and os.path.getsize(path)>1000:return True
+  except:continue
+ return False
+
 def make_audio(text,path):
  try:
-  tts=gTTS(text=text,lang='ar',slow=False)
-  tts.save(path)
-  return True
+  loop=asyncio.new_event_loop()
+  asyncio.set_event_loop(loop)
+  result=loop.run_until_complete(make_audio_async(text,path))
+  loop.close()
+  return result
  except:return False
+
+def get_fruit_image(search_term):
+ try:
+  # Unsplash free API
+  r=requests.get(f'https://source.unsplash.com/1080x1920/?{search_term},fruit,cartoon',
+   timeout=10,allow_redirects=True)
+  if r.status_code==200 and len(r.content)>5000:
+   path=f'/tmp/{uuid.uuid4()}.jpg'
+   with open(path,'wb') as f:f.write(r.content)
+   return path
+ except:pass
+ return None
 
 def make_video(sd,vid):
  os.makedirs('videos',exist_ok=True)
@@ -61,29 +93,50 @@ def make_video(sd,vid):
  emoji=sd.get('emoji','🍌')
  char=sd.get('character','الفيلسوف').replace("'",' ').replace(':',' ')
  script=sd.get('script','فلسفة ديزاد')
- lines='\n'.join(textwrap.wrap(script,width=28)[:8]).replace("'",' ').replace(':',' ').replace('%',' ')
+ fruit_search=sd.get('fruit_search','fruit')
+ lines='\n'.join(textwrap.wrap(script,width=26)[:7]).replace("'",' ').replace(':',' ').replace('%',' ')
 
  # توليد الصوت
  has_audio=make_audio(script,audio)
 
- if has_audio and os.path.exists(audio):
-  # فيديو مع صوت
-  cmd=['ffmpeg','-y',
-   '-f','lavfi','-i','color=c=#0f0f23:size=1080x1920:rate=30',
-   '-i',audio,
-   '-vf',f"drawtext=text='{emoji}':fontsize=160:x=(w-text_w)/2:y=180:fontcolor=white,drawtext=text='{char}':fontsize=52:x=(w-text_w)/2:y=400:fontcolor=#FFD700,drawtext=text='{lines}':fontsize=40:x=70:y=620:fontcolor=white:line_spacing=12,drawtext=text='فلسفة ديزاد':fontsize=36:x=(w-text_w)/2:y=1800:fontcolor=#555555",
-   '-c:v','libx264','-preset','ultrafast','-crf','28',
-   '-c:a','aac','-shortest',out]
- else:
-  # فيديو بدون صوت
-  cmd=['ffmpeg','-y',
-   '-f','lavfi','-i','color=c=#0f0f23:size=1080x1920:duration=40:rate=30',
-   '-vf',f"drawtext=text='{emoji}':fontsize=160:x=(w-text_w)/2:y=180:fontcolor=white,drawtext=text='{char}':fontsize=52:x=(w-text_w)/2:y=400:fontcolor=#FFD700,drawtext=text='{lines}':fontsize=40:x=70:y=620:fontcolor=white:line_spacing=12,drawtext=text='فلسفة ديزاد':fontsize=36:x=(w-text_w)/2:y=1800:fontcolor=#555555",
-   '-c:v','libx264','-preset','ultrafast','-crf','28','-t','40',out]
+ # محاولة جلب صورة الفاكهة
+ img_path=get_fruit_image(fruit_search)
 
- r=subprocess.run(cmd,capture_output=True,timeout=180)
- if os.path.exists(audio):os.remove(audio)
- if r.returncode!=0:raise Exception(f'FFmpeg:{r.stderr.decode()[:200]}')
+ # بناء الـ vf filter
+ if img_path and os.path.exists(img_path):
+  # خلفية من صورة الفاكهة مع overlay نص
+  vf=(f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
+      f"colorize=hue=240:saturation=0.3:lightness=-0.4,"
+      f"drawtext=text='{emoji}':fontsize=140:x=(w-text_w)/2:y=100:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=3,"
+      f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=320:fontcolor=#FFD700:shadowcolor=black:shadowx=2:shadowy=2,"
+      f"drawtext=text='{lines}':fontsize=42:x=60:y=560:fontcolor=white:line_spacing=14:shadowcolor=black:shadowx=2:shadowy=2,"
+      f"drawtext=text='فلسفة ديزاد 🎬':fontsize=38:x=(w-text_w)/2:y=1820:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2")
+  video_input=['-i',img_path]
+  video_filter=['-vf',vf]
+ else:
+  # خلفية gradient
+  vf=(f"drawtext=text='{emoji}':fontsize=160:x=(w-text_w)/2:y=180:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=3,"
+      f"drawtext=text='{char}':fontsize=52:x=(w-text_w)/2:y=400:fontcolor=#FFD700:shadowcolor=black:shadowx=2:shadowy=2,"
+      f"drawtext=text='{lines}':fontsize=40:x=70:y=640:fontcolor=white:line_spacing=12:shadowcolor=black:shadowx=2:shadowy=2,"
+      f"drawtext=text='فلسفة ديزاد 🎬':fontsize=36:x=(w-text_w)/2:y=1820:fontcolor=#AAAAAA")
+  video_input=['-f','lavfi','-i','color=c=#1a0a2e:size=1080x1920:duration=50:rate=30']
+  video_filter=['-vf',vf]
+
+ if has_audio and os.path.exists(audio):
+  if img_path:
+   cmd=['ffmpeg','-y','-loop','1']+video_input+['-i',audio]+video_filter+['-c:v','libx264','-preset','ultrafast','-crf','26','-c:a','aac','-shortest','-t','50',out]
+  else:
+   cmd=['ffmpeg','-y']+video_input+['-i',audio]+video_filter+['-c:v','libx264','-preset','ultrafast','-crf','26','-c:a','aac','-shortest',out]
+ else:
+  if img_path:
+   cmd=['ffmpeg','-y','-loop','1']+video_input+video_filter+['-c:v','libx264','-preset','ultrafast','-crf','26','-t','45',out]
+  else:
+   cmd=['ffmpeg','-y']+video_input+video_filter+['-c:v','libx264','-preset','ultrafast','-crf','26',out]
+
+ r=subprocess.run(cmd,capture_output=True,timeout=240)
+ if audio and os.path.exists(audio):os.remove(audio)
+ if img_path and os.path.exists(img_path):os.remove(img_path)
+ if r.returncode!=0:raise Exception(f'FFmpeg:{r.stderr.decode()[:300]}')
  return out
 
 def upload_yt(path,sd):
@@ -91,7 +144,7 @@ def upload_yt(path,sd):
  with open(TOKENS_FILE) as f:t=json.load(f)
  c=Credentials(token=t['access_token'],refresh_token=t['refresh_token'],token_uri='https://oauth2.googleapis.com/token',client_id=CLIENT_ID,client_secret=CLIENT_SECRET,scopes=SCOPES)
  yt=build('youtube','v3',credentials=c)
- body={'snippet':{'title':sd.get('title','فلسفة ديزاد')[:100],'description':f"{sd.get('description','')}\n{sd.get('hashtags','')}","tags":['فلسفة','الجزائر','فلسفة_ديزاد'],'categoryId':'22'},'status':{'privacyStatus':'public','selfDeclaredMadeForKids':False}}
+ body={'snippet':{'title':sd.get('title','فلسفة ديزاد')[:100],'description':f"{sd.get('description','')}\n{sd.get('hashtags','')}","tags":['فلسفة','الجزائر','فلسفة_ديزاد','ضحك'],'categoryId':'22'},'status':{'privacyStatus':'public','selfDeclaredMadeForKids':False}}
  media=MediaFileUpload(path,mimetype='video/mp4',resumable=True)
  req=yt.videos().insert(part='snippet,status',body=body,media_body=media)
  resp=None
@@ -116,7 +169,7 @@ def webhook():
     except Exception as e:tg(f'❌ {str(e)[:150]}')
    threading.Thread(target=up).start()
   elif action=='reject' and vid in pending:
-   v=pending.pop(vid,{});
+   v=pending.pop(vid,{})
    if os.path.exists(v.get('video_path','')):os.remove(v['video_path'])
    tg_edit(mid,'❌ تم الرفض. أرسل موضوع جديد.')
   elif action=='regen' and vid in pending:
@@ -132,8 +185,8 @@ def webhook():
    threading.Thread(target=rg).start()
  elif 'message' in data:
   text=data['message'].get('text','')
-  if text=='/start':tg('👋 <b>فلسفة ديزاد Bot</b>\n\nأرسل موضوع وأنا أصنع الفيديو مع صوت!\nمثال: <i>الموزة وسر السعادة</i>')
-  elif text=='/status':tg(f'📊 YouTube:{"✅" if os.path.exists(TOKENS_FILE) else "❌"}\nGroq:{"✅" if GROQ_KEY else "❌"}\nالصوت: ✅ gTTS')
+  if text=='/start':tg('👋 <b>فلسفة ديزاد Bot</b>\n\nأرسل موضوع وأنا أصنع فيديو مع صوت وصورة!\n\nمثال:\n<i>الموزة وسر السعادة</i>\n<i>الطماطم وفلسفة الحياة</i>')
+  elif text=='/status':tg(f'📊 YouTube:{"✅" if os.path.exists(TOKENS_FILE) else "❌"}\nGroq:{"✅" if GROQ_KEY else "❌"}\nالصوت: ✅ Edge-TTS\nالصور: ✅ Unsplash')
   elif text and not text.startswith('/'):
    topic=text.strip();tg(f'🎬 جاري التوليد: <b>{topic}</b>\n⏳ 60-90 ثانية...')
    def gn():
@@ -148,7 +201,7 @@ def webhook():
  return jsonify({'ok':True})
 
 @app.route('/')
-def home():return jsonify({'status':'✅ فلسفة ديزاد','youtube':'✅' if os.path.exists(TOKENS_FILE) else'❌ /auth','audio':'✅ gTTS'})
+def home():return jsonify({'status':'✅ فلسفة ديزاد v2','youtube':'✅' if os.path.exists(TOKENS_FILE) else'❌ /auth','audio':'✅ Edge-TTS','images':'✅ Unsplash'})
 
 @app.route('/auth')
 def auth():

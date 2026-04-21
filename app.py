@@ -139,7 +139,7 @@ def make_video(sd,vid):
  if r.returncode!=0:raise Exception(f'FFmpeg:{r.stderr.decode()[:300]}')
  return out
 
-def upload_yt(path,sd):
+def upload_yt(path,sd,max_retries=3):
  if not os.path.exists(TOKENS_FILE):raise Exception('YouTube غير مربوط')
  with open(TOKENS_FILE) as f:t=json.load(f)
  c=Credentials(token=t['access_token'],refresh_token=t['refresh_token'],token_uri='https://oauth2.googleapis.com/token',client_id=CLIENT_ID,client_secret=CLIENT_SECRET,scopes=SCOPES)

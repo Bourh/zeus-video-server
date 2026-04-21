@@ -34,6 +34,11 @@ def save_pending(data):
         with open(PENDING_FILE,'w') as f: json.dump(data,f)
     except: pass
 
+# Load YouTube tokens from ENV
+if not os.path.exists(TOKENS_FILE):
+    yt_env = os.environ.get('YOUTUBE_TOKENS')
+    if yt_env:
+        with open(TOKENS_FILE,'w') as f: f.write(yt_env)
 pending = load_pending()
 
 # ── Telegram ──────────────────────────────────────────────────
@@ -278,3 +283,10 @@ def sw():
 
 if __name__=='__main__':
     app.run(host='0.0.0.0',port=int(os.environ.get('PORT',5000)))
+
+@app.route('/get_tokens')
+def get_tokens():
+    if os.path.exists(TOKENS_FILE):
+        with open(TOKENS_FILE) as f:
+            return jsonify(json.load(f))
+    return jsonify({'error': 'not connected'})

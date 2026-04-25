@@ -188,42 +188,38 @@ def get_image(search):
 def make_video(sd,vid):
     os.makedirs('videos',exist_ok=True)
     out=f'videos/{vid}.mp4'
-    audio=f'videos/{vid}.mp3'
-    char=sd.get('character','الفيلسوف').replace("'",' ').replace(':',' ')
+    audio_path=f'videos/{vid}.mp3'
+    char_name=sd.get('character','موزة')
     emoji=sd.get('emoji','🍌')
     color=sd.get('color','#FFD700')
     script=sd.get('script','فلسفة ديزاد')
-    fruit_search=sd.get('fruit_search','fruit')
-    lines=' '.join(textwrap.wrap(script,width=24)[:6])
-    
-    has_audio=make_audio(script,audio)
+    fruit_search=sd.get('fruit_search','banana')
+    lines=' '.join(textwrap.wrap(script,22)[:5])
+    audio_ok=make_audio(script,audio_path)
     img=get_image(fruit_search)
-
+    
     if img and os.path.exists(img):
-        vf=(f"scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,"
-            f"zoompan=z='min(zoom+0.001,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=200:s=1080x1920:fps=30,"
-            f"drawtext=text='{char}':fontsize=50:x=(w-text_w)/2:y=200:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"
-            f"drawtext=text='{lines}':fontsize=38:x=40:y=h/2:fontcolor=white:line_spacing=12:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.6:boxborderw=12,"
-            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=32:x=(w-text_w)/2:y=h-80:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8,"
-            f"format=yuv420p")
+        scale_filter=f'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2'
+        zoom_filter="zoompan=z='min(zoom+0.001,1.1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=180:s=1080x1920:fps=30"
+        txt_filter=f"drawtext=text='{lines}':fontsize=36:x=30:y=h/2-50:fontcolor=white:line_spacing=10:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.6:boxborderw=10"
+        brand_filter="drawtext=text='فلسفة ديزاد 🎬':fontsize=30:x=(w-text_w)/2:y=h-70:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=6"
+        vf=f"{scale_filter},{zoom_filter},{txt_filter},{brand_filter},format=yuv420p"
         vi=['-loop','1','-i',img]
     else:
-        vf=(f"color=c=black:size=1080x1920:duration=50:rate=30,"
-            f"drawtext=text='{emoji}':fontsize=140:x=(w-text_w)/2:y=120:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=3,"
-            f"drawtext=text='{char}':fontsize=50:x=(w-text_w)/2:y=280:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"
-            f"drawtext=text='{lines}':fontsize=38:x=40:y=h/2:fontcolor=white:line_spacing=12:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.6:boxborderw=12,"
-            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=32:x=(w-text_w)/2:y=h-80:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8,"
-            f"format=yuv420p")
-        vi=['-f','lavfi','-i','color=c=black:size=1080x1920:duration=50:rate=30']
+        base_filter="color=c=black:size=1080x1920:duration=45:rate=30"
+        txt_filter=f"drawtext=text='{lines}':fontsize=36:x=30:y=h/2-50:fontcolor=white:line_spacing=10:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.6:boxborderw=10"
+        brand_filter="drawtext=text='فلسفة ديزاد 🎬':fontsize=30:x=(w-text_w)/2:y=h-70:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=6"
+        vf=f"{base_filter},{txt_filter},{brand_filter},format=yuv420p"
+        vi=['-f','lavfi','-i','color=c=black:size=1080x1920:duration=45:rate=30']
 
-    if has_audio and os.path.exists(audio):
-        cmd=['ffmpeg','-y']+vi+['-i',audio,'-vf',vf,'-c:v','libx264','-preset','ultrafast','-crf','24','-c:a','aac','-shortest','-t','50',out]
+    if audio_ok and os.path.exists(audio_path):
+        cmd=['ffmpeg','-y']+vi+['-i',audio_path,'-vf',vf,'-c:v','libx264','-preset','ultrafast','-crf','26','-c:a','aac','-shortest','-t','45',out]
     else:
-        cmd=['ffmpeg','-y']+vi+['-vf',vf,'-c:v','libx264','-preset','ultrafast','-crf','24','-t','45',out]
+        cmd=['ffmpeg','-y']+vi+['-vf',vf,'-c:v','libx264','-preset','ultrafast','-crf','26','-t','45',out]
 
     r=subprocess.run(cmd,capture_output=True,timeout=240)
     if img and os.path.exists(img): os.remove(img)
-    if os.path.exists(audio): os.remove(audio)
+    if os.path.exists(audio_path): os.remove(audio_path)
     if r.returncode!=0: raise Exception(f'FFmpeg:{r.stderr.decode()[:200]}')
     return out
 

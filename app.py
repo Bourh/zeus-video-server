@@ -20,7 +20,7 @@ SCOPES=['https://www.googleapis.com/auth/youtube.upload']
 TOKENS_FILE='youtube_tokens.json'
 PENDING_FILE='pending.json'
 TG_API=f'https://api.telegram.org/bot{TG_TOKEN}'
-AR_VOICES=['ar-SA-ZariyahNeural','ar-EG-SalmaNeural','ar-DZ-AminaNeural']
+AR_VOICES=['ar-EG-ShakirNeural','ar-SA-ZariyahNeural','ar-DZ-AminaNeural','ar-AE-FatimaNeural']
 
 CHARACTERS={
 'موزة':{'search':'banana yellow','emoji':'🍌','color':'#FFD700'},
@@ -112,13 +112,16 @@ def gen_script(topic):
     prompt=f'''اكتب سكريبت فيديو 25-35 ثانية (8-12 جملة) للتيك توك.
 الشخصية: {char_name} {char_info["emoji"]} 
 
-🚨- IMPORTANT: اكتبه بالعربية الفصحى (مش بالدارجة)! اكتب نص سلس ومختصَر مش طويل!
+اكتبه بالعربية المعاصرة السهلة والجريئة - نفس اللي يتكلم به الإعلام! 
+🚫 ممنوع: لهجة دارجة، لفظ شعبي، كلمات قديمة
+
+✅ استخدم: أنا، ماذا، لماذا،非常好، نعم، لا، الحقيقة، بس
 
 -موضوع: {topic}
--الأسلوب: فلسفة خفيفة ومضحكة، جمل قصيرة واضحة، النهاية مفاجئة
+-أسلوب: فلسفة خفيفة ومثيرة، جمل قصيرة، نهاية مفاجئة
 
 JSON فقط:
-{{"title":"عنوان جذاب","character":"{char_name}","emoji":"{char_info['emoji']}","fruit_search":"{char_info['search']}","color":"{char_info['color']}","script":"النص كامل بالعربية","hashtags":"#فلسفة_ديزاد #الجزائر #ضحك","description":"وصف"}}'''
+{{"title":"عنوان جذاب","character":"{char_name}","emoji":"{char_info['emoji']}","fruit_search":"{char_info['search']}","color":"{char_info['color']}","script":"النص بالعربية المعاصرة","hashtags":"#فلسفة_ديزاد #الجزائر #ضحك","description":"وصف"}}'''
     r=requests.post('https://api.groq.com/openai/v1/chat/completions',
         headers={'Authorization':f'Bearer {GROQ_KEY}','Content-Type':'application/json'},
         json={'model':'llama-3.3-70b-versatile','messages':[{'role':'user','content':prompt}],'max_tokens':600,'temperature':0.9},timeout=30)
@@ -131,8 +134,9 @@ async def make_audio_async(text,path):
     for voice in AR_VOICES:
         try:
             c=edge_tts.Communicate(text,voice)
-            c.set_pitch('+5Hz')
-            c.set_rate('+10%')
+            c.set_pitch('+10Hz')
+            c.set_rate('+15%')
+            c.set_volume('+20%')
             await c.save(path)
             if os.path.exists(path) and os.path.getsize(path)>1000: return True
         except Exception as e:

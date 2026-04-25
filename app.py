@@ -152,14 +152,33 @@ def make_audio(text,path):
     except: return False
 
 def get_image(search):
-    search_q=search.replace(' ','+')
-    for url in [
-        f'https://images.pexels.com/photos/search/{search}/?mobile=1&wall=1',
-        f'https://source.unsplash.com/1080x1920/?{search}',
-    ]:
+    keywords={
+        'banana':'yellow fruit',
+        'apple':'red apple',
+        'lemon':'yellow lemon',
+        'orange':'orange fruit',
+        'watermelon':'red watermelon',
+        'tomato':'red tomato',
+        'cucumber':'green cucumber',
+        'onion':'white onion',
+    }
+    query=keywords.get(search,search)
+    urls=[
+        f'https://pixel.cookingideas.cl/wp-content/uploads/2024/06/{query}.jpg',
+        f'https://images.unsplash.com/photo-1518847875368-8fd91a860c8d?w=1080',
+    ]
+    if 'banana' in search:
+        urls.append('https://images.unsplash.com/photo-1571771894821-9b5f6a4422e8?w=1080')
+    elif 'apple' in search:
+        urls.append('https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd7?w=1080')
+    else:
+        urls.append(f'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=1080')
+    
+    for url in urls:
         try:
             r=requests.get(url,timeout=10,allow_redirects=True)
-            if r.status_code==200 and len(r.content)>5000:
+            ct=r.headers.get('Content-Type','')
+            if r.status_code==200 and len(r.content)>5000 and ('image' in ct or len(r.content)<2000000):
                 path=f'/tmp/{uuid.uuid4()}.jpg'
                 with open(path,'wb') as f: f.write(r.content)
                 return path
@@ -180,7 +199,14 @@ def make_video(sd,vid):
     img=get_image(fruit_search)
 
     if img and os.path.exists(img):
-        vf=(f"scale=1200:2100,zoompan=z='min(zoom+0.0008,1.25)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=300:s=1080x1920:fps=30,"
+        try:
+            from PIL import Image
+            with Image.open(img) as im:
+                w,h=im.size
+                if w!=1080 or h!=1920:
+                    im.resize((1080,1920)).save(img)
+        except: pass
+        vf=(f"scale=1080:1920,zoompan=z='min(zoom+0.001,1.2)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=250:s=1080x1920:fps=30,"
             f"drawtext=text='{emoji}':fontsize=130:x=(w-text_w)/2:y=80:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4,"
             f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=270:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=10,"
             f"drawtext=text='{lines}':fontsize=42:x=50:y=500:fontcolor=white:line_spacing=15:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"

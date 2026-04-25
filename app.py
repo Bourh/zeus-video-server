@@ -22,14 +22,14 @@ TG_API=f'https://api.telegram.org/bot{TG_TOKEN}'
 AR_VOICES=['ar-DZ-AminaNeural','ar-SA-ZariyahNeural','ar-EG-ShakirNeural']
 
 CHARACTERS={
-'موزة':{'search':'banana yellow','emoji':'🍌','color':'#FFD700'},
-'تفاحة':{'search':'red apple fruit','emoji':'🍎','color':'#FF4444'},
-'ليمونة':{'search':'lemon yellow fruit','emoji':'🍋','color':'#FFFF00'},
-'برتقالة':{'search':'orange fruit','emoji':'🍊','color':'#FF8C00'},
-'بطيخة':{'search':'watermelon fruit','emoji':'🍉','color':'#FF6B6B'},
-'طماطم':{'search':'tomato red','emoji':'🍅','color':'#FF6347'},
-'خيارة':{'search':'cucumber green','emoji':'🥒','color':'#228B22'},
-'بصلة':{'search':'onion vegetable','emoji':'🧅','color':'#DEB887'},
+'موزة':{'search':'banana','emoji':'🍌','color':'Yellow'},
+'تفاحة':{'search':'apple','emoji':'🍎','color':'Red'},
+'ليمونة':{'search':'lemon','emoji':'🍋','color':'Yellow'},
+'برتقالة':{'search':'orange','emoji':'🍊','color':'Orange'},
+'بطيخة':{'search':'watermelon','emoji':'🍉','color':'Red'},
+'طماطم':{'search':'tomato','emoji':'🍅','color':'Red'},
+'خيارة':{'search':'cucumber','emoji':'🥒','color':'Green'},
+'بصلة':{'search':'onion','emoji':'🧅','color':'Brown'},
 }
 
 yt_env=os.environ.get('YOUTUBE_TOKENS')
@@ -63,7 +63,6 @@ def tg_edit(mid,text,kb=None):
     except: pass
 
 def tg_send_video(path,caption):
-    """يرسل الفيديو مباشرة على Telegram"""
     try:
         with open(path,'rb') as f:
             r=requests.post(f'{TG_API}/sendVideo',
@@ -79,7 +78,6 @@ def notify(vid):
     if not v: return
     sd=v['script_data']
 
-    # أولاً أرسل الفيديو مباشرة
     caption=(f"🎬 <b>{sd.get('title','')}</b>\n"
              f"🎭 {sd.get('character','')} {sd.get('emoji','')}\n"
              f"📝 {v.get('topic','')}\n\n"
@@ -88,18 +86,15 @@ def notify(vid):
 
     tg_send_video(v['video_path'],caption)
 
-    # ثم أرسل أزرار الإجراءات
-    msg=(f"⚡ <b>إجراءات الفيديو:</b>\n\n"
+    msg=(f"⚡ <b>إجراءات الفيديو (YouTube):</b>\n\n"
          f"📌 {sd.get('title','')}\n"
-         f"🎭 {sd.get('character','')} {sd.get('emoji','')}\n\n"
-         f"<i>{sd.get('script','')[:200]}...</i>")
+         f"<i>{sd.get('script','')[:150]}...</i>")
 
     kb={'inline_keyboard':[[
-        {'text':'✅ نشر YouTube','callback_data':f'approve:{vid}'},
-        {'text':'❌ رفض','callback_data':f'reject:{vid}'},
+        {'text':'✅ انشر في YouTube','callback_data':f'approve:{vid}'},
+        {'text':'❌ احذف','callback_data':f'reject:{vid}'},
     ],[
-        {'text':'🔄 أعد الكتابة','callback_data':f'regen:{vid}'},
-        {'text':'📊 إحصائيات','callback_data':f'stats:{vid}'},
+        {'text':'🔄 أعد الكتابة','callback_data':f'regen:{vid}'}
     ]]}
     res=tg(msg,kb)
     if res.get('ok'): pending[vid]['tg_mid']=res['result']['message_id']; save_pending(pending)
@@ -108,14 +103,13 @@ def gen_script(topic):
     import random
     char_name=random.choice(list(CHARACTERS.keys()))
     char_info=CHARACTERS[char_name]
-    prompt=f'''اكتب سكريبت فيديو 25-35 ثانية لصفحة فلسفة ديزاد.
-الشخصية: {char_name} {char_info["emoji"]} تتكلم بالدارجة الجزائرية
+    prompt=f'''اكتب سكريبت فيديو 25-35 ثانية لصفحة "فلسفة ديزاد".
+الشخصية: {char_name} {char_info["emoji"]} تتكلم بالدارجة الجزائرية العميقة والمضحكة.
 الموضوع: {topic}
-الأسلوب: فلسفة خفيفة وطريفة، نهاية مضحكة ومفاجئة
-استخدم: راني، واش، بصح، والو، كاش، يزي، ربي
+استخدم: راني، واش، بصح، والو، كاش، يزي، ياخويا.
 
 JSON فقط:
-{{"title":"عنوان جذاب للسوشيال ميديا","character":"{char_name}","emoji":"{char_info['emoji']}","fruit_search":"{char_info['search']}","color":"{char_info['color']}","script":"النص كامل بالدارجة","hashtags":"#فلسفة_ديزاد #الجزائر #ضحك #فلسفة","description":"وصف قصير"}}'''
+{{"title":"عنوان جذاب","character":"{char_name}","emoji":"{char_info['emoji']}","color":"{char_info['color']}","script":"النص كامل هنا","hashtags":"#فلسفة_ديزاد #الجزائر","description":"وصف قصير"}}'''
     r=requests.post('https://api.groq.com/openai/v1/chat/completions',
         headers={'Authorization':f'Bearer {GROQ_KEY}','Content-Type':'application/json'},
         json={'model':'llama-3.3-70b-versatile','messages':[{'role':'user','content':prompt}],'max_tokens':600,'temperature':0.9},timeout=30)
@@ -127,7 +121,7 @@ JSON فقط:
 async def make_audio_async(text,path):
     for voice in AR_VOICES:
         try:
-            c=edge_tts.Communicate(text,voice)
+            c=edge_tts.Communicate(text,voice,rate='+5%')
             await c.save(path)
             if os.path.exists(path) and os.path.getsize(path)>1000: return True
         except: continue
@@ -142,50 +136,44 @@ def make_audio(text,path):
         return r
     except: return False
 
-def get_image(search):
-    try:
-        r=requests.get(f'https://source.unsplash.com/1080x1920/?{search}',timeout=15,allow_redirects=True)
-        if r.status_code==200 and len(r.content)>5000:
-            path=f'/tmp/{uuid.uuid4()}.jpg'
-            with open(path,'wb') as f: f.write(r.content)
-            return path
-    except: pass
-    return None
-
 def make_video(sd,vid):
     os.makedirs('videos',exist_ok=True)
     out=f'videos/{vid}.mp4'
     audio=f'videos/{vid}.mp3'
-    char=sd.get('character','الفيلسوف').replace("'",' ').replace(':',' ')
+    
+    char=sd.get('character','الفيلسوف').replace("'",' ')
     emoji=sd.get('emoji','🍌')
-    color=sd.get('color','#FFD700')
+    color=sd.get('color','Yellow')
     script=sd.get('script','فلسفة ديزاد')
-    fruit_search=sd.get('fruit_search','fruit')
-    lines='\n'.join(textwrap.wrap(script,width=26)[:7]).replace("'",' ').replace(':',' ').replace('%',' ')
+    
+    # تحسين النص باش يجي في الوسط وما يخرجش من الشاشة
+    lines='\n'.join(textwrap.wrap(script,width=22))
     has_audio=make_audio(script,audio)
-    img=get_image(fruit_search)
 
-    if img and os.path.exists(img):
-        vf=(f"scale=1200:2100,zoompan=z='min(zoom+0.0008,1.25)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=300:s=1080x1920:fps=30,"
-            f"drawtext=text='{emoji}':fontsize=130:x=(w-text_w)/2:y=80:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4,"
-            f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=270:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=10,"
-            f"drawtext=text='{lines}':fontsize=42:x=50:y=500:fontcolor=white:line_spacing=15:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"
-            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=38:x=(w-text_w)/2:y=1830:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8")
-        vi=['-loop','1','-i',img]
-    else:
-        vf=(f"drawtext=text='{emoji}':fontsize=160:x=(w-text_w)/2:y=150:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4,"
-            f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=380:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2,"
-            f"drawtext=text='{lines}':fontsize=42:x=60:y=580:fontcolor=white:line_spacing=14:shadowcolor=black:shadowx=2:shadowy=2,"
-            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=38:x=(w-text_w)/2:y=1820:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2")
-        vi=['-f','lavfi','-i','color=c=#1a0a2e:size=1080x1920:duration=50:rate=30']
+    # فلتر لصناعة خلفية متحركة واحترافية + دمج النص بطريقة شابة
+    vf=(f"format=yuv420p,"
+        f"drawtext=text='{emoji}':fontsize=180:x=(w-text_w)/2:y=200:fontcolor=white:shadowcolor=black:shadowx=5:shadowy=5,"
+        f"drawtext=text='{char}':fontsize=60:x=(w-text_w)/2:y=420:fontcolor={color}:shadowcolor=black:shadowx=3:shadowy=3:box=1:boxcolor=black@0.6:boxborderw=15,"
+        f"drawtext=text='{lines}':fontsize=48:x=(w-text_w)/2:y=650:fontcolor=white:line_spacing=20:shadowcolor=black:shadowx=3:shadowy=3:text_align=C:box=1:boxcolor=black@0.5:boxborderw=20,"
+        f"drawtext=text='فلسفة ديزاد 🎬':fontsize=40:x=(w-text_w)/2:y=1750:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2")
 
     if has_audio and os.path.exists(audio):
-        cmd=['ffmpeg','-y']+vi+['-i',audio,'-vf',vf,'-c:v','libx264','-preset','ultrafast','-crf','24','-c:a','aac','-shortest','-t','50',out]
+        # يخدم خلفية متحركة بالألوان (Gradients) مع الصوت
+        cmd=['ffmpeg','-y',
+             '-f','lavfi','-i','color=c=#111111:size=1080x1920:duration=45:rate=30',
+             '-i',audio,
+             '-vf',vf,
+             '-c:v','libx264','-preset','fast','-crf','22',
+             '-c:a','aac','-b:a','192k',
+             '-shortest',out]
     else:
-        cmd=['ffmpeg','-y']+vi+['-vf',vf,'-c:v','libx264','-preset','ultrafast','-crf','24','-t','45',out]
+        # إذا ماكانش صوت، يخدم فيديو ساكت بصح متحرك
+        cmd=['ffmpeg','-y',
+             '-f','lavfi','-i','color=c=#111111:size=1080x1920:duration=30:rate=30',
+             '-vf',vf,
+             '-c:v','libx264','-preset','fast','-crf','22',out]
 
     r=subprocess.run(cmd,capture_output=True,timeout=240)
-    if img and os.path.exists(img): os.remove(img)
     if os.path.exists(audio): os.remove(audio)
     if r.returncode!=0: raise Exception(f'FFmpeg:{r.stderr.decode()[:200]}')
     return out
@@ -199,7 +187,7 @@ def upload_yt(path,sd,prog_mid=None):
     yt=build('youtube','v3',credentials=creds)
     body={'snippet':{'title':sd.get('title','فلسفة ديزاد')[:100],
                      'description':f"{sd.get('description','')}\n{sd.get('hashtags','')}",
-                     'tags':['فلسفة','الجزائر','فلسفة_ديزاد','ضحك','فواكه'],'categoryId':'22'},
+                     'tags':['فلسفة','الجزائر','فلسفة_ديزاد','ضحك'],'categoryId':'22'},
           'status':{'privacyStatus':'public','selfDeclaredMadeForKids':False}}
     media=MediaFileUpload(path,mimetype='video/mp4',resumable=True,chunksize=1024*1024)
     req=yt.videos().insert(part='snippet,status',body=body,media_body=media)
@@ -214,9 +202,6 @@ def upload_yt(path,sd,prog_mid=None):
                     tg_edit(prog_mid,f'📤 <b>جاري الرفع...</b>\n\n{bar} {p}%')
                     last=p
             retry=0
-        except HttpError as e:
-            if e.resp.status in [500,502,503,504] and retry<5: retry+=1; time.sleep(2**retry)
-            else: raise
         except:
             if retry<3: retry+=1; time.sleep(5)
             else: raise
@@ -247,12 +232,12 @@ def webhook():
         elif action=='reject' and vid in pending:
             v=pending.pop(vid,{}); save_pending(pending)
             if os.path.exists(v.get('video_path','')): os.remove(v['video_path'])
-            tg_edit(mid,'❌ تم الرفض.')
+            tg_edit(mid,'❌ تم الرفض وحذف الفيديو.')
         elif action=='regen' and vid in pending:
             topic=pending[vid].get('topic','معنى الحياة')
             v=pending.pop(vid,{}); save_pending(pending)
             if os.path.exists(v.get('video_path','')): os.remove(v['video_path'])
-            tg_edit(mid,f'🔄 <b>إعادة توليد: {topic}</b>\n⏳ دقيقتين...')
+            tg_edit(mid,f'🔄 <b>إعادة توليد: {topic}</b>\n⏳ دقيقة...')
             def rg():
                 try:
                     sd=gen_script(topic); nid=str(uuid.uuid4())[:8]; vp=make_video(sd,nid)
@@ -263,18 +248,12 @@ def webhook():
     elif 'message' in data:
         text=data['message'].get('text','')
         if text=='/start':
-            tg('👋 <b>فلسفة ديزاد Bot 🎬</b>\n\n🍌 فواكه تتكلم بالدارجة!\n\nأرسل موضوع:\n<i>معنى الحياة</i>\n<i>سر السعادة</i>\n<i>الحب والخيانة</i>\n\n/status - الحالة\n/token - توكن YouTube\n\n📱 الفيديو يجيك مباشرة للتحميل على TikTok وInstagram!')
+            tg('👋 <b>فلسفة ديزاد Bot v6 🎬</b>\n\n🍌 فواكه تتكلم بالدارجة بصوت وصورة مقلشة!\n\nأرسل موضوع:\n<i>الزلط والتفرعين</i>\n<i>القراية في دزاير</i>')
         elif text=='/status':
-            tg(f'📊 YouTube: {"✅" if os.path.exists(TOKENS_FILE) else "❌"}\nGroq: {"✅" if GROQ_KEY else "❌"}\nانتظار: {len(pending)} فيديو')
-        elif text=='/token':
-            if os.path.exists(TOKENS_FILE):
-                with open(TOKENS_FILE) as f: dt=f.read()
-                tg(f'🔑 <b>YouTube Token:</b>\n<code>{dt}</code>\n\nأضفه في Render كـ YOUTUBE_TOKENS')
-            else:
-                tg('❌ مش مربوط\nhttps://zeus-video-server.onrender.com/auth')
+            tg(f'📊 YouTube: {"✅" if os.path.exists(TOKENS_FILE) else "❌"}\nانتظار: {len(pending)} فيديو')
         elif text and not text.startswith('/'):
             topic=text.strip()
-            tg(f'🎬 <b>جاري التوليد:</b> {topic}\n\n🎙️ صوت جزائري\n🍌 فاكهة بـ Ken Burns\n⏳ دقيقة...\n\n📱 راح يجيك الفيديو مباشرة للتحميل على TikTok وInstagram!')
+            tg(f'🎬 <b>جاري الخدمة:</b> {topic}\n\n🎙️ صوت + 🎨 فيديو جديد...\n⏳ عس التيليجرام درك يوصلك الفيديو واجد!')
             def gn():
                 try:
                     sd=gen_script(topic)
@@ -287,22 +266,7 @@ def webhook():
     return jsonify({'ok':True})
 
 @app.route('/')
-def home():
-    return jsonify({'status':'✅ فلسفة ديزاد v5','youtube':'✅' if os.path.exists(TOKENS_FILE) else'❌ /auth'})
-
-@app.route('/auth')
-def auth():
-    flow=Flow.from_client_config({'web':{'client_id':CLIENT_ID,'client_secret':CLIENT_SECRET,'auth_uri':'https://accounts.google.com/o/oauth2/auth','token_uri':'https://oauth2.googleapis.com/token','redirect_uris':[REDIRECT_URI]}},scopes=SCOPES,redirect_uri=REDIRECT_URI)
-    url,state=flow.authorization_url(access_type='offline',prompt='consent'); session['state']=state; return redirect(url)
-
-@app.route('/oauth/callback')
-def cb():
-    flow=Flow.from_client_config({'web':{'client_id':CLIENT_ID,'client_secret':CLIENT_SECRET,'auth_uri':'https://accounts.google.com/o/oauth2/auth','token_uri':'https://oauth2.googleapis.com/token','redirect_uris':[REDIRECT_URI]}},scopes=SCOPES,redirect_uri=REDIRECT_URI,state=session.get('state'))
-    flow.fetch_token(authorization_response=request.url); creds=flow.credentials
-    tokens=json.dumps({'access_token':creds.token,'refresh_token':creds.refresh_token})
-    with open(TOKENS_FILE,'w') as f: f.write(tokens)
-    tg('🎉 <b>تم ربط YouTube!</b>\nابعث /token للتوكن الدائم')
-    return'<h1 style="color:green;text-align:center;font-family:sans-serif;margin-top:100px">✅ تم ربط YouTube!</h1>'
+def home(): return jsonify({'status':'✅ فلسفة ديزاد v6'})
 
 @app.route('/setup_webhook')
 def sw():

@@ -194,24 +194,25 @@ def make_video(sd,vid):
     color=sd.get('color','#FFD700')
     script=sd.get('script','فلسفة ديزاد')
     fruit_search=sd.get('fruit_search','fruit')
-    lines='\n'.join(textwrap.wrap(script,width=26)[:7]).replace("'",' ').replace(':',' ').replace('%',' ')
+    lines_text=re.sub(r'[^\w\s]','',lines).strip()
+    
     has_audio=make_audio(script,audio)
     img=get_image(fruit_search)
 
     if img and os.path.exists(img):
-        vf=(f"scale=iw*min(1080/iw,1920/ih):ih*min(1080/iw,1920/ih),zoompan=z='min(zoom+0.001,1.2)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=250:s=1080x1920:fps=30,"
-            f"drawtext=text='{emoji}':fontsize=130:x=(w-text_w)/2:y=80:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4,"
-            f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=270:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=10,"
-            f"drawtext=text='{lines}':fontsize=42:x=50:y=500:fontcolor=white:line_spacing=15:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"
-            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=38:x=(w-text_w)/2:y=1830:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8,"
+        vf=(f"scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,"
+            f"zoompan=z='min(zoom+0.001,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=200:s=1080x1920:fps=30,"
+            f"drawtext=text='{char}':fontsize=50:x=(w-text_w)/2:y=200:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"
+            f"drawtext=text='{lines_text}':fontsize=38:x=40:y=h/2:fontcolor=white:line_spacing=12:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.6:boxborderw=12,"
+            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=32:x=(w-text_w)/2:y=h-80:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8,"
             f"format=yuv420p")
         vi=['-loop','1','-i',img]
     else:
         vf=(f"color=c=black:size=1080x1920:duration=50:rate=30,"
-            f"drawtext=text='{emoji}':fontsize=160:x=(w-text_w)/2:y=150:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4,"
-            f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=380:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=10,"
-            f"drawtext=text='{lines}':fontsize=42:x=60:y=580:fontcolor=white:line_spacing=14:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"
-            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=38:x=(w-text_w)/2:y=1820:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8,"
+            f"drawtext=text='{emoji}':fontsize=140:x=(w-text_w)/2:y=120:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=3,"
+            f"drawtext=text='{char}':fontsize=50:x=(w-text_w)/2:y=280:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"
+            f"drawtext=text='{lines_text}':fontsize=38:x=40:y=h/2:fontcolor=white:line_spacing=12:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.6:boxborderw=12,"
+            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=32:x=(w-text_w)/2:y=h-80:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8,"
             f"format=yuv420p")
         vi=['-f','lavfi','-i','color=c=black:size=1080x1920:duration=50:rate=30']
 

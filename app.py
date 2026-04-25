@@ -109,14 +109,25 @@ def gen_script(topic):
     import random
     char_name=random.choice(list(CHARACTERS.keys()))
     char_info=CHARACTERS[char_name]
-    prompt=f'''اكتب سكريبت فيديو 25-35 ثانية لصفحة فلسفة ديزاد.
-الشخصية: {char_name} {char_info["emoji"]} تتكلم بالدارجة الجزائرية
-الموضوع: {topic}
-الأسلوب: فلسفة خفيفة وطريفة، نهاية مضحكة ومفاجئة
-استخدم: راني، واش، بصح، والو، كاش، يزي، ربي
+    prompt=f'''اكتب سكريبت فيديو 25-35 ثانية (8-12 جملة) للتيك توك.
+الشخصية: {char_name} {char_info["emoji"]} 
+
+🚨- IMPORTANT: اكتبه بالدارجة الجزائرية对接اااهمش باش تولي مفهومة للجزائريين! مش بالفصحى!
+
+أمثلة دارجة صحيحة:
+- "راني ملفوف بزاف"
+- "واش راك دار؟"
+- "بصح بصح"
+- "والو والو"
+- "كاش ماشي"
+- "يازي باش"
+- "ربي ياعلم"
+
+-موضوع: {topic}
+-الأسلوب: فلسفة خفيفة ومضحكة، النهاية مفاجئة
 
 JSON فقط:
-{{"title":"عنوان جذاب للسوشيال ميديا","character":"{char_name}","emoji":"{char_info['emoji']}","fruit_search":"{char_info['search']}","color":"{char_info['color']}","script":"النص كامل بالدارجة","hashtags":"#فلسفة_ديزاد #الجزائر #ضحك #فلسفة","description":"وصف قصير"}}'''
+{{"title":"عنوان جذاب","character":"{char_name}","emoji":"{char_info['emoji']}","fruit_search":"{char_info['search']}","color":"{char_info['color']}","script":"النص كامل بالدارجة","hashtags":"#فلسفة_ديزاد #الجزائر #ضحك","description":"وصف"}}'''
     r=requests.post('https://api.groq.com/openai/v1/chat/completions',
         headers={'Authorization':f'Bearer {GROQ_KEY}','Content-Type':'application/json'},
         json={'model':'llama-3.3-70b-versatile','messages':[{'role':'user','content':prompt}],'max_tokens':600,'temperature':0.9},timeout=30)

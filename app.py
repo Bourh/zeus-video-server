@@ -199,14 +199,7 @@ def make_video(sd,vid):
     img=get_image(fruit_search)
 
     if img and os.path.exists(img):
-        try:
-            from PIL import Image
-            with Image.open(img) as im:
-                w,h=im.size
-                if w!=1080 or h!=1920:
-                    im.resize((1080,1920)).save(img)
-        except: pass
-        vf=(f"scale=1080:1920,zoompan=z='min(zoom+0.001,1.2)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=250:s=1080x1920:fps=30,"
+        vf=(f"scale=iw*min(1080/iw,1920/ih):ih*min(1080/iw,1920/ih),zoompan=z='min(zoom+0.001,1.2)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=250:s=1080x1920:fps=30,"
             f"drawtext=text='{emoji}':fontsize=130:x=(w-text_w)/2:y=80:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4,"
             f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=270:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=10,"
             f"drawtext=text='{lines}':fontsize=42:x=50:y=500:fontcolor=white:line_spacing=15:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"

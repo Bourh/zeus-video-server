@@ -6,6 +6,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
 import requests,edge_tts
+from gtts import gTTS
 
 app=Flask(__name__)
 app.secret_key=os.environ.get('SECRET_KEY','fs2024')
@@ -130,7 +131,15 @@ async def make_audio_async(text,path):
             c=edge_tts.Communicate(text,voice)
             await c.save(path)
             if os.path.exists(path) and os.path.getsize(path)>1000: return True
-        except: continue
+        except Exception as e:
+            if '403' in str(e) or 'forbidden' in str(e).lower():
+                continue
+    try:
+        from gtts import gTTS
+        tts=gTTS(text,lang='ar')
+        tts.save(path)
+        if os.path.exists(path) and os.path.getsize(path)>1000: return 'gtts'
+    except: pass
     return False
 
 def make_audio(text,path):
@@ -143,13 +152,18 @@ def make_audio(text,path):
     except: return False
 
 def get_image(search):
-    try:
-        r=requests.get(f'https://source.unsplash.com/1080x1920/?{search}',timeout=15,allow_redirects=True)
-        if r.status_code==200 and len(r.content)>5000:
-            path=f'/tmp/{uuid.uuid4()}.jpg'
-            with open(path,'wb') as f: f.write(r.content)
-            return path
-    except: pass
+    search_q=search.replace(' ','+')
+    for url in [
+        f'https://images.pexels.com/photos/search/{search}/?mobile=1&wall=1',
+        f'https://source.unsplash.com/1080x1920/?{search}',
+    ]:
+        try:
+            r=requests.get(url,timeout=10,allow_redirects=True)
+            if r.status_code==200 and len(r.content)>5000:
+                path=f'/tmp/{uuid.uuid4()}.jpg'
+                with open(path,'wb') as f: f.write(r.content)
+                return path
+        except: continue
     return None
 
 def make_video(sd,vid):
@@ -170,14 +184,17 @@ def make_video(sd,vid):
             f"drawtext=text='{emoji}':fontsize=130:x=(w-text_w)/2:y=80:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4,"
             f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=270:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=10,"
             f"drawtext=text='{lines}':fontsize=42:x=50:y=500:fontcolor=white:line_spacing=15:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"
-            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=38:x=(w-text_w)/2:y=1830:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8")
+            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=38:x=(w-text_w)/2:y=1830:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8,"
+            f"format=yuv420p")
         vi=['-loop','1','-i',img]
     else:
-        vf=(f"drawtext=text='{emoji}':fontsize=160:x=(w-text_w)/2:y=150:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4,"
-            f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=380:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2,"
-            f"drawtext=text='{lines}':fontsize=42:x=60:y=580:fontcolor=white:line_spacing=14:shadowcolor=black:shadowx=2:shadowy=2,"
-            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=38:x=(w-text_w)/2:y=1820:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2")
-        vi=['-f','lavfi','-i','color=c=#1a0a2e:size=1080x1920:duration=50:rate=30']
+        vf=(f"color=c=black:size=1080x1920:duration=50:rate=30,"
+            f"drawtext=text='{emoji}':fontsize=160:x=(w-text_w)/2:y=150:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4,"
+            f"drawtext=text='{char}':fontsize=55:x=(w-text_w)/2:y=380:fontcolor={color}:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=10,"
+            f"drawtext=text='{lines}':fontsize=42:x=60:y=580:fontcolor=white:line_spacing=14:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.5:boxborderw=8,"
+            f"drawtext=text='فلسفة ديزاد 🎬':fontsize=38:x=(w-text_w)/2:y=1820:fontcolor=white:shadowcolor=black:shadowx=2:shadowy=2:box=1:boxcolor=black@0.4:boxborderw=8,"
+            f"format=yuv420p")
+        vi=['-f','lavfi','-i','color=c=black:size=1080x1920:duration=50:rate=30']
 
     if has_audio and os.path.exists(audio):
         cmd=['ffmpeg','-y']+vi+['-i',audio,'-vf',vf,'-c:v','libx264','-preset','ultrafast','-crf','24','-c:a','aac','-shortest','-t','50',out]

@@ -20,7 +20,7 @@ SCOPES=['https://www.googleapis.com/auth/youtube.upload']
 TOKENS_FILE='youtube_tokens.json'
 PENDING_FILE='pending.json'
 TG_API=f'https://api.telegram.org/bot{TG_TOKEN}'
-AR_VOICES=['ar-EG-ShakirNeural','ar-SA-ZariyahNeural','ar-DZ-AminaNeural','ar-AE-FatimaNeural']
+AR_VOICES=['en-US-AriaNeural','en-US-JennyNeural','en-US-SaraNeural']
 
 CHARACTERS={
 'موزة':{'search':'banana yellow','emoji':'🍌','color':'#FFD700'},
@@ -134,11 +134,10 @@ async def make_audio_async(text,path):
     for voice in AR_VOICES:
         try:
             c=edge_tts.Communicate(text,voice)
-            c.set_pitch('+10Hz')
-            c.set_rate('+15%')
-            c.set_volume('+20%')
+            c.set_pitch('+15Hz')
+            c.set_rate('+20%')
             await c.save(path)
-            if os.path.exists(path) and os.path.getsize(path)>1000: return True
+            if os.path.exists(path) and os.path.getsize(path)>500: return True
         except Exception as e:
             if '403' in str(e) or 'forbidden' in str(e).lower():
                 continue
